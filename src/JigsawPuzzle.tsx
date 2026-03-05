@@ -512,7 +512,15 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
         setScores(top);
       } catch {}
     }
-  }, [lockedCount, totalPieces, onComplete, ensureAudio, startTime, elapsed, nickname]);
+  }, [
+    lockedCount,
+    totalPieces,
+    onComplete,
+    ensureAudio,
+    startTime,
+    elapsed,
+    nickname,
+  ]);
 
   // ── Pointer down ──────────────────────────────────────────────────────────
   const handlePointerDown = useCallback(
@@ -897,8 +905,14 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
                   Puzzle complete!
                 </div>
                 <div className="text-neutral-400 text-xs">
-                  {totalPieces} dílků · <span className="text-indigo-400 font-semibold">{nickname}</span>
-                  {" "}· <span className="font-mono text-emerald-400">{formatTime(elapsed)}</span>
+                  {totalPieces} dílků ·{" "}
+                  <span className="text-indigo-400 font-semibold">
+                    {nickname}
+                  </span>{" "}
+                  ·{" "}
+                  <span className="font-mono text-emerald-400">
+                    {formatTime(elapsed)}
+                  </span>
                 </div>
               </div>
               <button
@@ -932,7 +946,8 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
               <div className="space-y-1.5">
                 {scores.slice(0, 5).map((s, idx) => {
                   const medals = ["🥇", "🥈", "🥉"];
-                  const isCurrentResult = s.time === elapsed && s.nickname === nickname;
+                  const isCurrentResult =
+                    s.time === elapsed && s.nickname === nickname;
                   return (
                     <div
                       key={idx}

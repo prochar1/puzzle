@@ -104,6 +104,28 @@ function playVictory(ctx: AudioContext): void {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Nick & time helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+function generateNickname(): string {
+  const consonants = "bcdfghjklmnpqrstvwxyz";
+  const vowels = "aeiouy";
+  let name = "";
+  for (let i = 0; i < 3; i++) {
+    name += consonants[Math.floor(Math.random() * consonants.length)];
+    name += vowels[Math.floor(Math.random() * vowels.length)];
+  }
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function formatTime(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Grid helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -428,14 +450,69 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
   const lockedCount = pieces.filter((p) => p.isLocked).length;
   const totalPieces = rows * cols;
 
+  // ── Timer & scores state ─────────────────────────────────────────────────
+  const SCORES_KEY = "puzzle_scores";
+  const [nickname, setNickname] = useState<string>(() => generateNickname());
+  const [started, setStarted] = useState(false);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const [elapsed, setElapsed] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [scores, setScores] = useState<
+    Array<{ time: number; date: string; nickname: string }>
+  >([]);
+  const timerRef = useRef<number | null>(null);
+
+  // Timer tick
+  useEffect(() => {
+    if (started && startTime && !finished) {
+      timerRef.current = window.setInterval(() => {
+        setElapsed(Date.now() - (startTime ?? Date.now()));
+      }, 100);
+    }
+    return () => {
+      if (timerRef.current) window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    };
+  }, [started, startTime, finished]);
+
+  // Load scores from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SCORES_KEY) || "[]";
+      setScores(JSON.parse(raw).slice(0, 20));
+    } catch {}
+  }, []);
+
+  // Completion: play audio, save score, show leaderboard
   useEffect(() => {
     if (!completedRef.current && lockedCount === totalPieces) {
       completedRef.current = true;
       const ctx = ensureAudio();
       if (ctx) playVictory(ctx);
       onComplete?.();
+      setFinished(true);
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      const total = startTime ? Date.now() - startTime : elapsed;
+      setElapsed(total);
+      try {
+        const raw = localStorage.getItem(SCORES_KEY) || "[]";
+        const list: Array<{ time: number; date: string; nickname: string }> =
+          JSON.parse(raw);
+        list.push({
+          time: total,
+          date: new Date().toISOString(),
+          nickname,
+        });
+        list.sort((a, b) => a.time - b.time);
+        const top = list.slice(0, 20);
+        localStorage.setItem(SCORES_KEY, JSON.stringify(top));
+        setScores(top);
+      } catch {}
     }
-  }, [lockedCount, totalPieces, onComplete, ensureAudio]);
+  }, [lockedCount, totalPieces, onComplete, ensureAudio, startTime, elapsed, nickname]);
 
   // ── Pointer down ──────────────────────────────────────────────────────────
   const handlePointerDown = useCallback(
@@ -447,6 +524,12 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
       if (!piece || piece.isLocked) return;
 
       ensureAudio(); // unlock AudioContext on first interaction
+
+      // Start timer on first picked-up piece
+      if (!started) {
+        setStarted(true);
+        setStartTime(Date.now());
+      }
 
       const el = pieceRefs.current.get(pieceId);
       if (!el) return;
@@ -771,8 +854,17 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
           {/* ── Pieces ──────────────────────────────────────────────────── */}
           {pieceElements}
 
-          {/* ── Progress bar ────────────────────────────────────────────── */}
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 z-[2000]">
+          {/* ── HUD: nick + timer + progress ───────────────────────────────── */}
+          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 z-[2000]">
+            <div className="flex items-center gap-3 bg-neutral-900/90 border border-neutral-700 rounded-xl px-5 py-2 backdrop-blur-sm shadow-lg">
+              <span className="text-indigo-400 font-bold font-mono text-sm tracking-wide">
+                {nickname}
+              </span>
+              <div className="w-px h-4 bg-neutral-600" />
+              <span className="text-white font-bold font-mono text-sm tabular-nums">
+                {formatTime(elapsed)}
+              </span>
+            </div>
             <div className="text-neutral-400 text-xs font-mono tracking-widest">
               {lockedCount} / {totalPieces}
             </div>
@@ -794,38 +886,88 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
             top: boardOffset.y + boardHeight + 20,
             left: "50%",
             transform: "translateX(-50%)",
-            whiteSpace: "nowrap",
           }}
         >
-          <div className="flex items-center gap-5 bg-neutral-900/95 border border-neutral-700 rounded-2xl px-7 py-4 shadow-2xl backdrop-blur-sm">
-            <span className="text-2xl">🧩</span>
-            <div className="flex flex-col">
-              <span className="text-white font-bold text-base leading-tight">
-                Puzzle complete!
-              </span>
-              <span className="text-neutral-400 text-xs">
-                {totalPieces} dílků složeno
-              </span>
+          <div className="bg-neutral-900/97 border border-neutral-700 rounded-2xl px-7 py-5 shadow-2xl backdrop-blur-sm min-w-[340px]">
+            {/* Header */}
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-3xl">🧩</span>
+              <div className="flex-1">
+                <div className="text-white font-bold text-base leading-tight">
+                  Puzzle complete!
+                </div>
+                <div className="text-neutral-400 text-xs">
+                  {totalPieces} dílků · <span className="text-indigo-400 font-semibold">{nickname}</span>
+                  {" "}· <span className="font-mono text-emerald-400">{formatTime(elapsed)}</span>
+                </div>
+              </div>
+              <button
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold transition-colors text-sm shrink-0"
+                onClick={() => {
+                  completedRef.current = false;
+                  setStarted(false);
+                  setStartTime(null);
+                  setElapsed(0);
+                  setFinished(false);
+                  setNickname(generateNickname());
+                  setPieces(
+                    generatePieces(
+                      rows,
+                      cols,
+                      pw,
+                      ph,
+                      pad,
+                      boardOffset.x,
+                      boardOffset.y,
+                    ),
+                  );
+                }}
+              >
+                Hrát znovu
+              </button>
             </div>
-            <button
-              className="ml-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white font-semibold transition-colors text-sm"
-              onClick={() => {
-                completedRef.current = false;
-                setPieces(
-                  generatePieces(
-                    rows,
-                    cols,
-                    pw,
-                    ph,
-                    pad,
-                    boardOffset.x,
-                    boardOffset.y,
-                  ),
-                );
-              }}
-            >
-              Hrát znovu
-            </button>
+
+            {/* Žebříček */}
+            {scores.length > 0 && (
+              <div className="space-y-1.5">
+                {scores.slice(0, 5).map((s, idx) => {
+                  const medals = ["🥇", "🥈", "🥉"];
+                  const isCurrentResult = s.time === elapsed && s.nickname === nickname;
+                  return (
+                    <div
+                      key={idx}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                        isCurrentResult
+                          ? "bg-emerald-900/60 border border-emerald-600 scale-[1.02]"
+                          : idx === 0
+                            ? "bg-yellow-900/30 border border-yellow-700/50"
+                            : idx === 1
+                              ? "bg-neutral-800/70 border border-neutral-600/50"
+                              : idx === 2
+                                ? "bg-orange-900/30 border border-orange-700/50"
+                                : "bg-neutral-800/40 border border-neutral-700/40"
+                      }`}
+                    >
+                      <span className="text-base w-6 text-center shrink-0">
+                        {medals[idx] ?? `${idx + 1}.`}
+                      </span>
+                      <span className="text-indigo-300 font-semibold flex-1 truncate">
+                        {s.nickname}
+                      </span>
+                      <span className="font-mono font-bold text-white tabular-nums">
+                        {formatTime(s.time)}
+                      </span>
+                      <span className="text-neutral-500 text-xs shrink-0">
+                        {new Date(s.date).toLocaleDateString("cs-CZ", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}

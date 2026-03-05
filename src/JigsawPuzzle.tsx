@@ -662,28 +662,65 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
     ],
   );
 
-  // ── Board ghost cells (placement guides) ──────────────────────────────────
+  // ── Ghost dílky na herní ploše (tvarované, zašedlá fotka) ───────────────
   const boardGhostCells = useMemo(
     () =>
-      Array.from({ length: rows * cols }, (_, i) => {
-        const r = Math.floor(i / cols);
-        const c = i % cols;
+      pieces.map((piece) => {
+        const elW = pw + 2 * pad;
+        const elH = ph + 2 * pad;
+        const bgX = pad - piece.col * pw;
+        const bgY = pad - piece.row * ph;
         return (
           <div
-            key={`ghost-${r}-${c}`}
+            key={`ghost-${piece.id}`}
             style={{
               position: "absolute",
-              left: c * pw,
-              top: r * ph,
-              width: pw,
-              height: ph,
-              boxSizing: "border-box",
-              border: "1px dashed rgba(255,255,255,0.12)",
+              left: piece.correctX,
+              top: piece.correctY,
+              width: elW,
+              height: elH,
+              pointerEvents: "none",
             }}
-          />
+          >
+            {/* Zašedlá fotka oříznutá na tvar dílku */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                clipPath: `path('${piece.path}')`,
+                backgroundImage: `url(${imageUrl})`,
+                backgroundSize: `${boardWidth}px ${boardHeight}px`,
+                backgroundPosition: `${bgX}px ${bgY}px`,
+                backgroundRepeat: "no-repeat",
+                opacity: 0.1,
+                // filter: "grayscale(100%)",
+              }}
+            />
+            {/* Obrys tvaru */}
+            <svg
+              style={{
+                position: "absolute",
+                inset: 0,
+                width: elW,
+                height: elH,
+                overflow: "visible",
+                pointerEvents: "none",
+              }}
+            >
+              <path
+                d={piece.path}
+                fill="none"
+                stroke="rgba(255,255,255,0.22)"
+                strokeWidth={2}
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
         );
       }),
-    [rows, cols, pw, ph],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pieces, pw, ph, pad, boardWidth, imageUrl],
   );
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -721,27 +758,15 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
               width: boardWidth,
               height: boardHeight,
               boxSizing: "border-box",
-              border: "2px dashed rgba(255,255,255,0.30)",
+              // border: "2px dashed rgba(255,255,255,0.30)",
               borderRadius: 4,
-              overflow: "hidden",
               zIndex: 0,
               pointerEvents: "none",
             }}
-          >
-            {/* Zeslabený náhledový obrázek na pozadí */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                backgroundImage: `url(${imageUrl})`,
-                backgroundSize: `${boardWidth}px ${boardHeight}px`,
-                backgroundPosition: "0 0",
-                backgroundRepeat: "no-repeat",
-                opacity: 0.18,
-              }}
-            />
-            {boardGhostCells}
-          </div>
+          />
+
+          {/* ── Ghost dílky ─────────────────────────────────────────────── */}
+          {boardGhostCells}
 
           {/* ── Pieces ──────────────────────────────────────────────────── */}
           {pieceElements}

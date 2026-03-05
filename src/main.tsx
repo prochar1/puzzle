@@ -9,7 +9,7 @@ createRoot(document.getElementById("root")!).render(
       imageUrl="https://picsum.photos/seed/puzzle/800/600"
       boardWidth={800}
       boardHeight={600}
-      pieceCount={5}
+      pieceCount={50}
       onComplete={() => console.log("Puzzle complete!")}
     />
   </StrictMode>,

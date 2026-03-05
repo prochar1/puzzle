@@ -460,6 +460,7 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
   const [scores, setScores] = useState<
     Array<{ time: number; date: string; nickname: string }>
   >([]);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const timerRef = useRef<number | null>(null);
 
   // Timer tick
@@ -872,6 +873,18 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
               <span className="text-white font-bold font-mono text-sm tabular-nums">
                 {formatTime(elapsed)}
               </span>
+              {scores.length > 0 && (
+                <>
+                  <div className="w-px h-4 bg-neutral-600" />
+                  <button
+                    className="text-neutral-400 hover:text-white transition-colors text-xs font-semibold"
+                    onClick={() => setShowLeaderboard(true)}
+                    title="Žebříček"
+                  >
+                    🏆
+                  </button>
+                </>
+              )}
             </div>
             <div className="text-neutral-400 text-xs font-mono tracking-widest">
               {lockedCount} / {totalPieces}
@@ -923,6 +936,7 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
                   setStartTime(null);
                   setElapsed(0);
                   setFinished(false);
+                  setShowLeaderboard(false);
                   setNickname(generateNickname());
                   setPieces(
                     generatePieces(
@@ -941,17 +955,60 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
               </button>
             </div>
 
-            {/* Žebříček */}
+            {/* Tlačítko žebříček */}
             {scores.length > 0 && (
-              <div className="space-y-1.5">
-                {scores.slice(0, 5).map((s, idx) => {
+              <button
+                className="mt-1 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 border border-neutral-600 text-neutral-300 hover:text-white text-sm font-semibold transition-colors"
+                onClick={() => setShowLeaderboard(true)}
+              >
+                <span>🏆</span> Žebříček
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Leaderboard modal popup ─────────────────────────────────────── */}
+      {showLeaderboard && (
+        <div
+          className="fixed inset-0 z-[9000] flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.72)" }}
+          onClick={() => setShowLeaderboard(false)}
+        >
+          <div
+            className="bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">🏆</span>
+                <span className="text-white font-bold text-base">Žebříček</span>
+              </div>
+              <button
+                className="text-neutral-500 hover:text-white transition-colors text-xl leading-none"
+                onClick={() => setShowLeaderboard(false)}
+                aria-label="Zavřít"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Scores list */}
+            <div className="px-4 py-4 space-y-2 max-h-[70vh] overflow-y-auto">
+              {scores.length === 0 ? (
+                <p className="text-neutral-500 text-sm text-center py-4">
+                  Zatím žádné výsledky.
+                </p>
+              ) : (
+                scores.slice(0, 20).map((s, idx) => {
                   const medals = ["🥇", "🥈", "🥉"];
                   const isCurrentResult =
-                    s.time === elapsed && s.nickname === nickname;
+                    finished && s.time === elapsed && s.nickname === nickname;
                   return (
                     <div
                       key={idx}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${
                         isCurrentResult
                           ? "bg-emerald-900/60 border border-emerald-600 scale-[1.02]"
                           : idx === 0
@@ -980,9 +1037,19 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
                       </span>
                     </div>
                   );
-                })}
-              </div>
-            )}
+                })
+              )}
+            </div>
+
+            {/* Modal footer */}
+            <div className="px-6 py-4 border-t border-neutral-800 flex justify-end">
+              <button
+                className="px-4 py-2 rounded-xl bg-neutral-700 hover:bg-neutral-600 text-white text-sm font-semibold transition-colors"
+                onClick={() => setShowLeaderboard(false)}
+              >
+                Zavřít
+              </button>
+            </div>
           </div>
         </div>
       )}

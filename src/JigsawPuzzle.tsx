@@ -12,6 +12,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import vc from "./VpassCloud";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -35,6 +36,8 @@ export interface JigsawPuzzleProps {
   boardHeight: number;
   /** Approximate number of pieces; actual count = rows × cols ≥ 4 */
   pieceCount: number;
+  id?: number;
+  currentLang?: string;
   onComplete?: () => void;
 }
 
@@ -408,6 +411,8 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
   boardWidth,
   boardHeight,
   pieceCount,
+  id,
+  currentLang,
   onComplete,
 }) => {
   // ── Board offset (centred in viewport) ────────────────────────────────────
@@ -511,7 +516,28 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
         const top = list.slice(0, 20);
         localStorage.setItem(SCORES_KEY, JSON.stringify(top));
         setScores(top);
+        vc.jsLogSaveResult(
+          Math.round(total / 1000),
+          JSON.stringify({
+            action: "puzzle_save_result",
+            name: "jigsaw",
+            value: Math.round(total / 1000),
+            pieces: totalPieces,
+            id: id ?? null,
+            lang: currentLang ?? null,
+          }),
+        );
       } catch {}
+      vc.jsLogEndGame(
+        JSON.stringify({
+          action: "puzzle_end",
+          name: "jigsaw",
+          value: Math.round(total / 1000),
+          pieces: totalPieces,
+          id: id ?? null,
+          lang: currentLang ?? null,
+        }),
+      );
     }
   }, [
     lockedCount,
@@ -538,6 +564,14 @@ const JigsawPuzzle: React.FC<JigsawPuzzleProps> = ({
       if (!started) {
         setStarted(true);
         setStartTime(Date.now());
+        vc.jsLogStartGame(
+          JSON.stringify({
+            action: "puzzle_start",
+            name: "jigsaw",
+            value: id ?? null,
+            lang: currentLang ?? null,
+          }),
+        );
       }
 
       const el = pieceRefs.current.get(pieceId);
